@@ -22,7 +22,7 @@ export default function AppRouter() {
             <Route index element={<App />} />
             <Route path="home" element={<Home />} />
             {/* Routes accessible by both admin and professor */}
-            <Route element={<RequireRole allowedRoles={["admin", "professor", "student"]} />}>
+            <Route element={<RequireRole allowedRoles={["student", "professor", "admin"]} />}>
               <Route path="activities">
                 <Route index element={<Activities />} />
                 <Route path=":id" element={<ActivitiesDetails />} />
