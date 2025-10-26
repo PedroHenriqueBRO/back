@@ -2,18 +2,28 @@
 
 namespace App\Providers;
 
-use Illuminate\Auth\Notifications\ResetPassword;
+use App\Models\Atividade;
+use App\Models\Problema;
+use App\Models\Professor;
+use App\Models\User;
+use App\Policies\AtividadePolicy;
+use App\Policies\ProblemaPolicy;
+use App\Policies\ProfessorPolicy;
+use App\Policies\AlunoPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 
 class AuthServiceProvider extends ServiceProvider
 {
     /**
-     * The policy mappings for the application.
+     * The model to policy mappings for the application.
      *
      * @var array<class-string, class-string>
      */
     protected $policies = [
-        // 'App\Models\Model' => 'App\Policies\ModelPolicy',
+        Atividade::class => AtividadePolicy::class,
+        Problema::class => ProblemaPolicy::class,
+        Professor::class => ProfessorPolicy::class,
+        User::class => AlunoPolicy::class,
     ];
 
     /**
@@ -22,9 +32,5 @@ class AuthServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerPolicies();
-
-        ResetPassword::createUrlUsing(function (object $notifiable, string $token) {
-            return config('app.frontend_url')."/password-reset/$token?email={$notifiable->getEmailForPasswordReset()}";
-        });
     }
 }

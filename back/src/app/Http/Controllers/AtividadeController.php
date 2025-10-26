@@ -14,6 +14,11 @@ use Illuminate\Http\Request;
  */
 class AtividadeController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Atividade::class, 'atividade');
+    }
+
     /**
      * @OA\Get(
      *      path="/api/atividades",

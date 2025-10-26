@@ -12,25 +12,37 @@ use Illuminate\Validation\Rule;
 class AlunoController extends Controller
 {
     /**
+     * Autoriza automaticamente os recursos baseando-se na policy
+     */
+    public function __construct()
+    {
+        $this->authorizeResource(User::class, 'aluno');
+    }
+
+    /**
      * @OA\Get(
      *     path="/api/alunos",
      *     summary="Lista todos os alunos",
      *     tags={"Alunos"},
+     *     security={{"sanctum":{}}},
      *     @OA\Response(
      *         response=200,
      *         description="Operação bem-sucedida",
      *         @OA\JsonContent(type="array", @OA\Items(ref="#/components/schemas/AlunoResource"))
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Acesso negado"
      *     )
      * )
      */
     public function index()
     {
-        // Busca usuários que possuem uma entrada correspondente na tabela 'alunos'
         $alunos = User::join('alunos', 'users.id', '=', 'alunos.user_id')
-            ->select('users.*') // Garante que estamos selecionando apenas os campos de users
-            ->latest('users.created_at') // Especifica a tabela para evitar ambiguidade
+            ->select('users.*')
+            ->latest('users.created_at')
             ->paginate(15);
-            
+
         return AlunoResource::collection($alunos);
     }
 
@@ -39,6 +51,7 @@ class AlunoController extends Controller
      *     path="/api/alunos",
      *     summary="Cria um novo aluno",
      *     tags={"Alunos"},
+     *     security={{"sanctum":{}}},
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(ref="#/components/schemas/StoreAlunoRequest")
@@ -51,6 +64,10 @@ class AlunoController extends Controller
      *     @OA\Response(
      *         response=422,
      *         description="Erro de validação"
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Acesso negado"
      *     )
      * )
      */
@@ -65,26 +82,29 @@ class AlunoController extends Controller
         ]);
 
         $user = DB::transaction(function () use ($validated) {
-            // Primeiro cria o User
+            // Cria o User
             $user = User::create([
                 'name' => $validated['name'],
                 'email' => $validated['email'],
                 'password' => $validated['password'],
             ]);
-            
-            // Depois cria o Aluno
+
+            // Atribui a role 'student' automaticamente
+            $user->assignRole('student');
+
+            // Cria o Aluno
             Aluno::create([
                 'user_id' => $user->id,
                 'curso_id' => $validated['curso_id'],
                 'matricula' => $validated['matricula'] ?? null,
             ]);
-            
-            return $user;
+
+            return $user->load('aluno.curso');
         });
 
         return (new AlunoResource($user))
             ->response()
-            ->setStatusCode(201); // HTTP 201: Created
+            ->setStatusCode(201);
     }
 
     /**
@@ -92,6 +112,7 @@ class AlunoController extends Controller
      *     path="/api/alunos/{id}",
      *     summary="Busca um aluno pelo ID",
      *     tags={"Alunos"},
+     *     security={{"sanctum":{}}},
      *     @OA\Parameter(
      *         name="id",
      *         in="path",
@@ -107,12 +128,15 @@ class AlunoController extends Controller
      *     @OA\Response(
      *         response=404,
      *         description="Aluno não encontrado"
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Acesso negado"
      *     )
      * )
      */
     public function show(User $aluno)
     {
-        // Verifica se o usuário tem um registro de aluno associado
         $alunoRecord = Aluno::where('user_id', $aluno->id)->first();
         if (!$alunoRecord) {
             return response()->json(['message' => 'Aluno não encontrado'], 404);
@@ -125,6 +149,7 @@ class AlunoController extends Controller
      *     path="/api/alunos/{id}",
      *     summary="Atualiza um aluno existente",
      *     tags={"Alunos"},
+     *     security={{"sanctum":{}}},
      *     @OA\Parameter(
      *         name="id",
      *         in="path",
@@ -143,12 +168,15 @@ class AlunoController extends Controller
      *     @OA\Response(
      *         response=404,
      *         description="Aluno não encontrado"
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Acesso negado"
      *     )
      * )
      */
     public function update(Request $request, User $aluno)
     {
-        // Verifica se o usuário tem um registro de aluno associado
         $alunoRecord = Aluno::where('user_id', $aluno->id)->first();
         if (!$alunoRecord) {
             return response()->json(['message' => 'Aluno não encontrado'], 404);
@@ -169,7 +197,7 @@ class AlunoController extends Controller
                 $userData['password'] = $validated['password'];
             }
             $aluno->update($userData);
-            
+
             // Atualiza dados do Aluno
             $alunoData = [];
             if ($request->has('curso_id')) {
@@ -183,7 +211,7 @@ class AlunoController extends Controller
             }
         });
 
-        return new AlunoResource($aluno->fresh());
+        return new AlunoResource($aluno->fresh('aluno.curso'));
     }
 
     /**
@@ -191,6 +219,7 @@ class AlunoController extends Controller
      *     path="/api/alunos/{id}",
      *     summary="Deleta um aluno",
      *     tags={"Alunos"},
+     *     security={{"sanctum":{}}},
      *     @OA\Parameter(
      *         name="id",
      *         in="path",
@@ -204,24 +233,25 @@ class AlunoController extends Controller
      *     @OA\Response(
      *         response=404,
      *         description="Aluno não encontrado"
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="Acesso negado"
      *     )
      * )
      */
     public function destroy(User $aluno)
     {
-        // Verifica se o usuário tem um registro de aluno associado
         $alunoRecord = Aluno::where('user_id', $aluno->id)->first();
         if (!$alunoRecord) {
             return response()->json(['message' => 'Aluno não encontrado'], 404);
         }
 
         DB::transaction(function () use ($aluno, $alunoRecord) {
-            // Primeiro deleta o registro de Aluno
             $alunoRecord->delete();
-            // Depois deleta o User
             $aluno->delete();
         });
 
-        return response()->noContent(); // HTTP 204: No Content
+        return response()->noContent();
     }
 }

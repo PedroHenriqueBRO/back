@@ -9,6 +9,10 @@ use Illuminate\Http\Request;
 
 class ProblemaController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Problema::class, 'problema');
+    }
     /**
      * @OA\Get(
      *      path="/api/problemas",
@@ -80,7 +84,7 @@ class ProblemaController extends Controller
     {
         $problemaService = new ProblemaService($request);
 
-        if(!$problemaService->salvar()){
+        if (!$problemaService->salvar()) {
             return response()->json('Erro ao salvar!', 400);
         }
 
@@ -126,13 +130,8 @@ class ProblemaController extends Controller
      *      @OA\Response(response=501, description="Não implementado")
      * )
      */
-    public function update(Request $request, Problema $problema)
-    {
-
-    }
-    public function teste(){
-
-    }
+    public function update(Request $request, Problema $problema) {}
+    public function teste() {}
 
     /**
      * @OA\Delete(
@@ -159,9 +158,9 @@ class ProblemaController extends Controller
      */
     public function destroy(Problema $problema)
     {
-        try{
+        try {
             $problema->delete();
-        } catch(Exception $e){
+        } catch (Exception $e) {
             return response()->json(['Erro ao apagar.'], 400);
         }
 

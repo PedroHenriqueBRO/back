@@ -28,12 +28,18 @@ class AlunoSeeder extends Seeder
                 'matricula' => '2023001'
             ]);
 
+            $user1->assignRole('student');
+
+
             // Aluno 2
             $user2 = User::create([
                 'name' => 'Bruno Dias',
                 'email' => 'bruno.dias@email.com',
                 'password' => 'password123'
             ]);
+
+            $user2->assignRole('student');
+
             Aluno::create([
                 'user_id' => $user2->id,
                 'curso_id' => 2,
@@ -46,6 +52,9 @@ class AlunoSeeder extends Seeder
                 'email' => 'carlos.eduardo@email.com',
                 'password' => 'password123'
             ]);
+
+            $user3->assignRole('student');
+            
             Aluno::create([
                 'user_id' => $user3->id,
                 'curso_id' => 3,

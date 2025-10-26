@@ -27,17 +27,21 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
     Route::get('/user/roles', [AuthController::class, 'roles']);
     Route::get('/user/permissions', [AuthController::class, 'permissions']);
+
+    // ========================================
+    // RECURSOS COM AUTORIZAÇÃO VIA POLICIES
+    // ========================================
     
-    // Rotas de recursos da API
+    // As policies verificam automaticamente as permissões
     Route::apiResource('atividades', AtividadeController::class);
     Route::apiResource('problemas', ProblemaController::class);
-    Route::apiResource('professores', ProfessorController::class);
     Route::apiResource('alunos', AlunoController::class);
+    Route::apiResource('professores', ProfessorController::class);
     
+    // Submissões (sem update e destroy)
     Route::apiResource('submissoes', SubmissaoController::class)
-        ->except('update', 'destroy')
-        ->parameters(['submissoes' => 'submissao']);
+        ->except(['update', 'destroy']);
     
-    // Rotas de correção
+    // Correções
     Route::get('/correcao/busca-por-submissao/{submissao}', [CorrecaoController::class, 'buscaPorSubmissao']);
 });

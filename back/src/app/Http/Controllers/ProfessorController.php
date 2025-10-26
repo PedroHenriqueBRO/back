@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\DB;
 
 class ProfessorController extends Controller
 {
+    /**
+     * Autoriza automaticamente os recursos baseando-se na policy
+     */
     public function __construct()
     {
         $this->authorizeResource(Professor::class, 'professor');
@@ -17,81 +20,109 @@ class ProfessorController extends Controller
 
     public function index()
     {
-        $professores = Professor::with('user')->get();
-
+        $professores = Professor::with('user')->paginate(15);
         return response()->json($professores, 200);
     }
 
-
     public function store(Request $request)
     {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:8|confirmed',
+            'area_atuacao' => 'nullable|string|max:255',
+        ]);
+
         try {
-            DB::beginTransaction();
+            $professor = DB::transaction(function () use ($validated) {
+                // Cria o User
+                $user = User::create([
+                    'name' => $validated['name'],
+                    'email' => strtolower($validated['email']),
+                    'password' => Hash::make($validated['password']),
+                ]);
 
-            $user = User::create([
-                'name' => $request->name,
-                'email' => strtolower($request->email),
-                'password' => Hash::make($request->password),
-            ]);
+                // Atribui a role 'professor' automaticamente
+                $user->assignRole('professor');
 
-            $professor = Professor::create([
-                'id' => $user->id,
-                'area_atuacao' => $request->area_atuacao,
-            ]);
+                // Cria o Professor
+                $professor = Professor::create([
+                    'id' => $user->id,
+                    'area_atuacao' => $validated['area_atuacao'] ?? null,
+                ]);
 
-            $user->assignRole('professor');
-            DB::commit();
+                return $professor->load('user');
+            });
 
-
-            return response()->json($professor->load('user'), 201);
+            return response()->json($professor, 201);
         } catch (\Throwable $e) {
-            DB::rollBack();
-            return response()->json(['error' => 'Erro ao criar professor', 'details' => $e->getMessage()], 500);
+            return response()->json([
+                'error' => 'Erro ao criar professor',
+                'details' => $e->getMessage()
+            ], 500);
         }
     }
 
-
-    public function update(Request $request, $id)
+    public function show(Professor $professor)
     {
-        $professor = Professor::findOrFail($id);
-        $user = User::findOrFail($professor->id);
-
-
-        try {
-            DB::beginTransaction();
-
-            $professor->area_atuacao = $request->area_atuacao ?? $professor->area_atuacao;
-            $professor->save();
-
-            $user->name = $request->name ?? $user->name;
-            $user->email = isset($request->email) ? strtolower($request->email) : $user->email;
-            $user->save();
-
-            DB::commit();
-
-
-            return response()->json($professor->load('user'), 200);
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return response()->json(['error' => 'Erro ao atualizar professor', 'details' => $e->getMessage()], 500);
-        }
-    }
-
-    public function show($id)
-    {
-        $professor = Professor::findOrFail($id);
-
         return response()->json($professor->load('user'), 200);
     }
 
-    public function destroy($id)
+    public function update(Request $request, Professor $professor)
     {
-        $professor = Professor::findOrFail($id);
-        $user = User::findOrFail($id);
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . $professor->id,
+            'password' => 'nullable|string|min:8|confirmed',
+            'area_atuacao' => 'nullable|string|max:255',
+        ]);
 
-        $professor->delete();
-        $user->delete();
+        try {
+            DB::transaction(function () use ($professor, $validated, $request) {
+                // Atualiza dados do Professor
+                if ($request->has('area_atuacao')) {
+                    $professor->area_atuacao = $validated['area_atuacao'];
+                    $professor->save();
+                }
 
-        return response()->json(null, 204);
+                // Atualiza dados do User
+                $user = $professor->user;
+                if ($request->has('name')) {
+                    $user->name = $validated['name'];
+                }
+                if ($request->has('email')) {
+                    $user->email = strtolower($validated['email']);
+                }
+                if ($request->filled('password')) {
+                    $user->password = Hash::make($validated['password']);
+                }
+                $user->save();
+            });
+
+            return response()->json($professor->fresh('user'), 200);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'error' => 'Erro ao atualizar professor',
+                'details' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function destroy(Professor $professor)
+    {
+        try {
+            DB::transaction(function () use ($professor) {
+                $user = $professor->user;
+                $professor->delete();
+                $user->delete();
+            });
+
+            return response()->noContent();
+        } catch (\Throwable $e) {
+            return response()->json([
+                'error' => 'Erro ao deletar professor',
+                'details' => $e->getMessage()
+            ], 500);
+        }
     }
 }
