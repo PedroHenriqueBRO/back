@@ -12,14 +12,6 @@ use Illuminate\Validation\Rule;
 class AlunoController extends Controller
 {
     /**
-     * Autoriza automaticamente os recursos baseando-se na policy
-     */
-    public function __construct()
-    {
-        $this->authorizeResource(User::class, 'aluno');
-    }
-
-    /**
      * @OA\Get(
      *     path="/api/alunos",
      *     summary="Lista todos os alunos",
@@ -38,6 +30,15 @@ class AlunoController extends Controller
      */
     public function index()
     {
+        // Verifica se o usuário tem permissão para ver alunos
+        if (!auth()->user()->can('view-alunos')) {
+            return response()->json([
+                'message' => 'Você não tem permissão para visualizar alunos',
+                'user_roles' => auth()->user()->getRoleNames(),
+                'user_permissions' => auth()->user()->getAllPermissions()->pluck('name')
+            ], 403);
+        }
+
         $alunos = User::join('alunos', 'users.id', '=', 'alunos.user_id')
             ->select('users.*')
             ->latest('users.created_at')
