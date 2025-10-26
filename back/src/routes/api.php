@@ -20,8 +20,22 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+// ========================================
+// ROTAS PÚBLICAS (SEM AUTENTICAÇÃO)
+// ========================================
+
+// Rotas de autenticação (login/logout)
+Route::post('/login', [AuthController::class, 'login'])->name('login');
+
+// ========================================
+// ROTAS PROTEGIDAS (REQUEREM AUTENTICAÇÃO)
+// ========================================
+
 // Todas as rotas da API exigem autenticação via Sanctum
 Route::middleware('auth:sanctum')->group(function () {
+    
+    // Logout (precisa estar autenticado)
+    Route::post('/logout', [AuthController::class, 'logout']);
     
     // Rotas de informações do usuário autenticado
     Route::get('/user', [AuthController::class, 'user']);
